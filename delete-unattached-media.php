@@ -7,19 +7,35 @@
  * Author: nome autor
  */
 
+// Evitar acesso direto ao arquivo
 if (!defined('ABSPATH')) {
   exit;
 }
 
+// Função chamada na ativação do plugin
+function delete_unattached_media_activate() {
+  // Você pode realizar tarefas iniciais aqui, como configurar as tabelas do banco de dados ou arquivos
+  // Exemplo de mensagem de log ou configuração inicial
+  write_custom_log('Plugin ativado. Preparando para uso.', 'plugin_activation.log');
+}
+
+// Registrar a função de ativação
+register_activation_hook(__FILE__, 'delete_unattached_media_activate');
+
 // Função para escrever no log
 function write_custom_log($message, $log_file) {
   $formatted_message = '[' . date('Y-m-d H:i:s') . '] ' . $message . PHP_EOL;
-  file_put_contents($log_file, $formatted_message, FILE_APPEND);
+  file_put_contents(plugin_dir_path(__FILE__) . 'logs/' . $log_file, $formatted_message, FILE_APPEND);
 }
 
 // Função para excluir mídias desanexadas
 function delete_unattached_media($start_date, $end_date) {
   global $wpdb;
+
+  // Verifique se a função foi chamada após a ativação do plugin
+  if (!is_plugin_active('delete-unattached-media/delete-unattached-media.php')) {
+    return; // Caso o plugin não tenha sido ativado, impede a execução do código
+  }
 
   $start_timestamp = strtotime($start_date);
   $end_timestamp = strtotime($end_date);
@@ -74,7 +90,7 @@ function delete_unattached_media($start_date, $end_date) {
     write_custom_log($full_message, $log_file_name);
     $log_messages[] = $full_message;
   }
-  
+
   return $log_messages; // Retorna o array de mensagens de log
 }
 
