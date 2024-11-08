@@ -39,21 +39,20 @@ function write_custom_log($message, $log_file) {
   file_put_contents($log_dir . '/' . $log_file, $formatted_message, FILE_APPEND);
 }
 
-
 // Função para excluir mídias desanexadas
 function delete_unattached_media($start_date, $end_date) {
   global $wpdb;
 
+  // Converter as datas em timestamps
   $start_timestamp = strtotime($start_date);
   $end_timestamp = strtotime($end_date);
 
-  if ($start_date === $end_date) {
-    $start_datetime = date('Y-m-d 00:00:00', $start_timestamp);
-    $end_datetime = date('Y-m-d 23:59:59', $end_timestamp);
-  } else {
-    $start_datetime = date('Y-m-d H:i:s', $start_timestamp);
-    $end_datetime = date('Y-m-d H:i:s', $end_timestamp);
+  if ($start_timestamp === false || $end_timestamp === false) {
+    return ['Erro: uma ou ambas as datas são inválidas.'];
   }
+
+  $start_datetime = date('Y-m-d 00:00:00', $start_timestamp);
+  $end_datetime = date('Y-m-d 23:59:59', $end_timestamp);
 
   // Gerar um nome único para o arquivo de log baseado nas datas
   $log_file_name = 'delete_media_' . date('Y-m-d') . '-start-' . sanitize_title($start_date) . '-end-' . sanitize_title($end_date) . '.log';
@@ -63,12 +62,12 @@ function delete_unattached_media($start_date, $end_date) {
 
   // Obter os IDs das mídias desanexadas
   $unattached_media_ids = $wpdb->get_col($wpdb->prepare("
-    SELECT ID FROM {$wpdb->posts}
-    WHERE post_type = 'attachment'
-    AND post_parent = 0
-    AND post_date >= %s
-    AND post_date <= %s
-  ", $start_datetime, $end_datetime));
+        SELECT ID FROM {$wpdb->posts}
+        WHERE post_type = 'attachment'
+        AND post_parent = 0
+        AND post_date >= %s
+        AND post_date <= %s
+    ", $start_datetime, $end_datetime));
 
   // Verificar se existem mídias desanexadas
   if (!empty($unattached_media_ids)) {
@@ -100,7 +99,7 @@ function delete_unattached_media($start_date, $end_date) {
   }
 
   // Armazenar mensagens no transiente
-  set_transient('delete_unattached_media_log_messages', $log_messages, 60); // Exibe por 60 segundos
+  set_transient('delete_unattached_media_log_messages', $log_messages, 120); // Exibe por 120 segundos
 
   return $log_messages;
 }
@@ -159,14 +158,10 @@ add_action('admin_menu', 'delete_unattached_media_menu');
 add_action('admin_notices', function () {
   $log_messages = get_transient('delete_unattached_media_log_messages');
 
-  if ($log_messages) {
-    if (empty($log_messages)) {
-      echo '<div class="notice notice-success is-dismissible"><p>' . count($log_messages) . ' mídias desanexadas excluídas com sucesso!</p></div>';
-    } else {
-      echo '<div class="notice notice-warning is-dismissible"><p>Nenhuma mídia desanexada encontrada para exclusão no período especificado.</p></div>';
-    }
-
-    // Limpa o transiente após exibição
+  if (!empty($log_messages)) {
+    echo '<div class="notice notice-success is-dismissible"><p>' . count($log_messages) . ' mídias desanexadas excluídas com sucesso!</p></div>';
     delete_transient('delete_unattached_media_log_messages');
+  } else {
+    echo '<div class="notice notice-warning is-dismissible"><p>Nenhuma mídia desanexada encontrada para exclusão no período especificado.</p></div>';
   }
 });
