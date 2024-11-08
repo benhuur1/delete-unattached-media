@@ -11,12 +11,13 @@ if (!defined('ABSPATH')) {
   exit;
 }
 
-function write_custom_log($message) {
-  $log_file = plugin_dir_path(__FILE__) . 'logs/debug.log';
+// Função para escrever no log
+function write_custom_log($message, $log_file) {
   $formatted_message = '[' . date('Y-m-d H:i:s') . '] ' . $message . PHP_EOL;
   file_put_contents($log_file, $formatted_message, FILE_APPEND);
 }
 
+// Função para excluir mídias desanexadas
 function delete_unattached_media($start_date, $end_date) {
   global $wpdb;
 
@@ -32,6 +33,12 @@ function delete_unattached_media($start_date, $end_date) {
     $end_datetime = date('Y-m-d H:i:s', $end_timestamp);
   }
 
+  // Gerar um nome único para o arquivo de log baseado nas datas
+  $log_file_name = plugin_dir_path(__FILE__) . 'logs/delete_media_' . date('Y-m-d') . '_' . sanitize_title($start_date) . '-' . sanitize_title($end_date) . '.log';
+  
+  // Iniciar o array de mensagens de log
+  $log_messages = [];
+
   $unattached_media_ids = $wpdb->get_col($wpdb->prepare("
     SELECT ID FROM {$wpdb->posts}
     WHERE post_type = 'attachment'
@@ -39,8 +46,6 @@ function delete_unattached_media($start_date, $end_date) {
     AND post_date >= %s
     AND post_date <= %s
   ", $start_datetime, $end_datetime));
-
-  $log_messages = []; // Array para armazenar mensagens de log
 
   if (!empty($unattached_media_ids)) {
     foreach ($unattached_media_ids as $attachment_id) {
@@ -52,27 +57,28 @@ function delete_unattached_media($start_date, $end_date) {
       if ($deleted instanceof WP_Post) {
         $message = $file_exists ? 'Mídia excluída com sucesso: ' : 'Registro de mídia excluído, mas o arquivo não foi encontrado: ';
         $full_message = $message . $attachment_url;
-        write_custom_log($full_message);
+        write_custom_log($full_message, $log_file_name);
         $log_messages[] = $full_message; // Armazena a mensagem para exibição
       } else if ($deleted === false) {
         $full_message = "Erro ao excluir a mídia: " . $attachment_url;
-        write_custom_log($full_message);
+        write_custom_log($full_message, $log_file_name);
         $log_messages[] = $full_message;
       } else if ($deleted === null) {
         $full_message = "Erro ao excluir a mídia id: " . $attachment_id . ' não corresponde à mídia url: ' . $attachment_url;
-        write_custom_log($full_message);
+        write_custom_log($full_message, $log_file_name);
         $log_messages[] = $full_message;
       }
     }
   } else {
     $full_message = "Nenhuma mídia desacompanhada encontrada para exclusão no período especificado.";
-    write_custom_log($full_message);
+    write_custom_log($full_message, $log_file_name);
     $log_messages[] = $full_message;
   }
   
   return $log_messages; // Retorna o array de mensagens de log
 }
 
+// Função para exibir o formulário
 function delete_unattached_media_form() {
   $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
   $end_date = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
@@ -111,6 +117,7 @@ function delete_unattached_media_form() {
 <?php
 }
 
+// Função para adicionar o menu do plugin
 function delete_unattached_media_menu() {
   add_menu_page(
     'Excluir Mídias Desanexadas',
