@@ -24,8 +24,15 @@ register_activation_hook(__FILE__, 'delete_unattached_media_activate');
 
 // Função para escrever no log
 function write_custom_log($message, $log_file) {
+  $log_directory = plugin_dir_path(__FILE__) . 'logs/';
+  
+  // Verifique se o diretório de logs existe, se não, crie-o
+  if (!file_exists($log_directory)) {
+    mkdir($log_directory, 0755, true); // Cria o diretório de logs se não existir
+  }
+  
   $formatted_message = '[' . date('Y-m-d H:i:s') . '] ' . $message . PHP_EOL;
-  file_put_contents(plugin_dir_path(__FILE__) . 'logs/' . $log_file, $formatted_message, FILE_APPEND);
+  file_put_contents($log_directory . $log_file, $formatted_message, FILE_APPEND);
 }
 
 // Função para excluir mídias desanexadas
@@ -50,8 +57,8 @@ function delete_unattached_media($start_date, $end_date) {
   }
 
   // Gerar um nome único para o arquivo de log baseado nas datas
-  $log_file_name = plugin_dir_path(__FILE__) . 'logs/delete_media_' . date('Y-m-d') . '_' . sanitize_title($start_date) . '-' . sanitize_title($end_date) . '.log';
-  
+  $log_file_name = 'delete_media_' . date('Y-m-d') . '-start-' . sanitize_title($start_date) . '-end-' . sanitize_title($end_date) . '.log';
+
   // Iniciar o array de mensagens de log
   $log_messages = [];
 
