@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Delete Unattached Media
  * Description: Excluir mídias desanexadas dentro de um intervalo de data especificado
- * Version: 0.1 Beta
+ * Version: 0.2 Beta
  * Author: nome autor
  */
 
@@ -14,8 +14,11 @@ if (!defined('ABSPATH')) {
 
 // Função chamada na ativação do plugin
 function delete_unattached_media_activate() {
-  // Você pode realizar tarefas iniciais aqui, como configurar as tabelas do banco de dados ou arquivos
-  // Exemplo de mensagem de log ou configuração inicial
+  // Verifica se o diretório de logs existe e cria, caso necessário
+  $log_dir = plugin_dir_path(__FILE__) . 'logs/';
+  if (!is_dir($log_dir)) {
+    mkdir($log_dir, 0755, true); // Cria o diretório com permissões adequadas
+  }
   write_custom_log('Plugin ativado. Preparando para uso.', 'plugin_activation.log');
 }
 
@@ -24,25 +27,22 @@ register_activation_hook(__FILE__, 'delete_unattached_media_activate');
 
 // Função para escrever no log
 function write_custom_log($message, $log_file) {
-  $log_directory = plugin_dir_path(__FILE__) . 'logs/';
-  
-  // Verifique se o diretório de logs existe, se não, crie-o
-  if (!file_exists($log_directory)) {
-    mkdir($log_directory, 0755, true); // Cria o diretório de logs se não existir
-  }
-  
+  // Defina o diretório de logs dentro da função
+  $log_dir = plugin_dir_path(__FILE__) . 'logs'; // Diretório de logs
   $formatted_message = '[' . date('Y-m-d H:i:s') . '] ' . $message . PHP_EOL;
-  file_put_contents($log_directory . $log_file, $formatted_message, FILE_APPEND);
+
+  // Verifica se o diretório de logs existe
+  if (!is_dir($log_dir)) {
+    mkdir($log_dir, 0755, true); // Cria o diretório de logs, se necessário
+  }
+
+  file_put_contents($log_dir . '/' . $log_file, $formatted_message, FILE_APPEND);
 }
+
 
 // Função para excluir mídias desanexadas
 function delete_unattached_media($start_date, $end_date) {
   global $wpdb;
-
-  // Verifique se a função foi chamada após a ativação do plugin
-  if (!is_plugin_active('delete-unattached-media/delete-unattached-media.php')) {
-    return; // Caso o plugin não tenha sido ativado, impede a execução do código
-  }
 
   $start_timestamp = strtotime($start_date);
   $end_timestamp = strtotime($end_date);
@@ -56,12 +56,14 @@ function delete_unattached_media($start_date, $end_date) {
     $end_datetime = date('Y-m-d H:i:s', $end_timestamp);
   }
 
-  // Gerar um nome único para o arquivo de log baseado nas datas
-  $log_file_name = 'delete_media_' . date('Y-m-d') . '-start-' . sanitize_title($start_date) . '-end-' . sanitize_title($end_date) . '.log';
+// Gerar um nome único para o arquivo de log baseado nas datas
+$log_file_name = 'delete_media_' . date('Y-m-d') . '-start-' . sanitize_title($start_date) . '-end-' . sanitize_title($end_date) . '.log';
+
 
   // Iniciar o array de mensagens de log
   $log_messages = [];
 
+  // Obter os IDs das mídias desanexadas
   $unattached_media_ids = $wpdb->get_col($wpdb->prepare("
     SELECT ID FROM {$wpdb->posts}
     WHERE post_type = 'attachment'
@@ -70,6 +72,7 @@ function delete_unattached_media($start_date, $end_date) {
     AND post_date <= %s
   ", $start_datetime, $end_datetime));
 
+  // Verificar se existem mídias desanexadas
   if (!empty($unattached_media_ids)) {
     foreach ($unattached_media_ids as $attachment_id) {
       $attachment_url = wp_get_attachment_url($attachment_id);
@@ -108,15 +111,25 @@ function delete_unattached_media_form() {
   $log_messages = [];
 
   if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($start_date) && !empty($end_date)) {
+    // Validação de datas
+    if (strtotime($start_date) === false || strtotime($end_date) === false) {
+      echo '<div class="notice notice-error is-dismissible"><p>Por favor, insira datas válidas.</p></div>';
+      return;
+    }
+
     $log_messages = delete_unattached_media($start_date, $end_date);
 
     add_action('admin_notices', function () use ($log_messages) {
-      if (!empty($log_messages)) {
-        echo '<div class="notice notice-success is-dismissible"><p>Mídias desanexadas excluídas com sucesso!</p></div>';
+      // Verifique se há mensagens de log
+      if (isset($log_messages) && !empty($log_messages)) {
+        // Exibe o sucesso se houver mensagens
+        echo '<div class="notice notice-success is-dismissible"><p>' . count($log_messages) . ' mídias desanexadas excluídas com sucesso!</p></div>';
       } else {
+        // Caso contrário, exibe um aviso de que nenhuma mídia foi encontrada
         echo '<div class="notice notice-warning is-dismissible"><p>Nenhuma mídia desanexada encontrada para exclusão no período especificado.</p></div>';
       }
     });
+    
   }
 ?>
   <div class="wrap">
