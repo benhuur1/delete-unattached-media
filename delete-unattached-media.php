@@ -8,9 +8,22 @@
  */
 
 // Evitar acesso direto ao arquivo
-if (!defined('ABSPATH')) {
-  exit;
+defined('ABSPATH') or die('Acesso negado!');
+
+// Incluir o arquivo de relatórios de mídias
+require_once plugin_dir_path(__FILE__) . 'media-reports.php'; // Caminho para o arquivo de relatórios
+
+// Função de ativação do plugin
+function media_reports_activate() {
+  // Seu código de ativação aqui, se necessário
 }
+register_activation_hook(__FILE__, 'media_reports_activate');
+
+// Função de desativação do plugin
+function media_reports_deactivate() {
+  // Seu código de desativação aqui, se necessário
+}
+register_deactivation_hook(__FILE__, 'media_reports_deactivate');
 
 // Função chamada na ativação do plugin
 function delete_unattached_media_activate() {
@@ -130,7 +143,9 @@ function delete_unattached_media_form() {
     </form>
     <?php if (!empty($log_messages)): ?>
       <h2>Relatório de Exclusão:</h2>
-      <div class="notice notice-success is-dismissible"><p><?= $deleted_count ?> mídias desanexadas excluídas com sucesso!</p></div>
+      <div class="notice notice-success is-dismissible">
+        <p><?= $deleted_count ?> mídias desanexadas excluídas com sucesso!</p>
+      </div>
       <ul>
         <?php foreach ($log_messages as $message): ?>
           <li><?php echo esc_html($message); ?></li>
@@ -150,6 +165,14 @@ function delete_unattached_media_menu() {
     'manage_options',
     'delete_unattached_media',
     'delete_unattached_media_form'
+  );
+  add_submenu_page(
+    'delete_unattached_media',
+    'Relatório de Mídias Desanexadas', // Título da página do submenu
+    'Relatório', // Nome do submenu
+    'manage_options', // Permissão necessária
+    'delete-unattached-media-report', // Slug da página do submenu
+    'media_reports_page' // Função que renderiza o conteúdo da página do submenu
   );
 }
 
