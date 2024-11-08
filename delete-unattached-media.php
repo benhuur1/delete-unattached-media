@@ -47,7 +47,6 @@ function delete_unattached_media($start_date, $end_date) {
   $start_timestamp = strtotime($start_date);
   $end_timestamp = strtotime($end_date);
 
-  // Ajuste para lidar com o mesmo dia
   if ($start_date === $end_date) {
     $start_datetime = date('Y-m-d 00:00:00', $start_timestamp);
     $end_datetime = date('Y-m-d 23:59:59', $end_timestamp);
@@ -56,9 +55,8 @@ function delete_unattached_media($start_date, $end_date) {
     $end_datetime = date('Y-m-d H:i:s', $end_timestamp);
   }
 
-// Gerar um nome único para o arquivo de log baseado nas datas
-$log_file_name = 'delete_media_' . date('Y-m-d') . '-start-' . sanitize_title($start_date) . '-end-' . sanitize_title($end_date) . '.log';
-
+  // Gerar um nome único para o arquivo de log baseado nas datas
+  $log_file_name = 'delete_media_' . date('Y-m-d') . '-start-' . sanitize_title($start_date) . '-end-' . sanitize_title($end_date) . '.log';
 
   // Iniciar o array de mensagens de log
   $log_messages = [];
@@ -101,7 +99,10 @@ $log_file_name = 'delete_media_' . date('Y-m-d') . '-start-' . sanitize_title($s
     $log_messages[] = $full_message;
   }
 
-  return $log_messages; // Retorna o array de mensagens de log
+  // Armazenar mensagens no transiente
+  set_transient('delete_unattached_media_log_messages', $log_messages, 60); // Exibe por 60 segundos
+
+  return $log_messages;
 }
 
 // Função para exibir o formulário
@@ -118,18 +119,6 @@ function delete_unattached_media_form() {
     }
 
     $log_messages = delete_unattached_media($start_date, $end_date);
-
-    add_action('admin_notices', function () use ($log_messages) {
-      // Verifique se há mensagens de log
-      if (isset($log_messages) && !empty($log_messages)) {
-        // Exibe o sucesso se houver mensagens
-        echo '<div class="notice notice-success is-dismissible"><p>' . count($log_messages) . ' mídias desanexadas excluídas com sucesso!</p></div>';
-      } else {
-        // Caso contrário, exibe um aviso de que nenhuma mídia foi encontrada
-        echo '<div class="notice notice-warning is-dismissible"><p>Nenhuma mídia desanexada encontrada para exclusão no período especificado.</p></div>';
-      }
-    });
-    
   }
 ?>
   <div class="wrap">
@@ -165,3 +154,19 @@ function delete_unattached_media_menu() {
 }
 
 add_action('admin_menu', 'delete_unattached_media_menu');
+
+// Exibe as mensagens de log após o processamento
+add_action('admin_notices', function () {
+  $log_messages = get_transient('delete_unattached_media_log_messages');
+
+  if ($log_messages) {
+    if (empty($log_messages)) {
+      echo '<div class="notice notice-success is-dismissible"><p>' . count($log_messages) . ' mídias desanexadas excluídas com sucesso!</p></div>';
+    } else {
+      echo '<div class="notice notice-warning is-dismissible"><p>Nenhuma mídia desanexada encontrada para exclusão no período especificado.</p></div>';
+    }
+
+    // Limpa o transiente após exibição
+    delete_transient('delete_unattached_media_log_messages');
+  }
+});
