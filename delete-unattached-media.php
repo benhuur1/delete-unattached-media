@@ -158,10 +158,12 @@ add_action('admin_menu', 'delete_unattached_media_menu');
 add_action('admin_notices', function () {
   $log_messages = get_transient('delete_unattached_media_log_messages');
 
-  if (!empty($log_messages)) {
-    echo '<div class="notice notice-success is-dismissible"><p>' . count($log_messages) . ' mídias desanexadas excluídas com sucesso!</p></div>';
-    delete_transient('delete_unattached_media_log_messages');
-  } else {
-    echo '<div class="notice notice-warning is-dismissible"><p>Nenhuma mídia desanexada encontrada para exclusão no período especificado.</p></div>';
+  if ($log_messages) {
+    if (!empty($log_messages)) {
+      echo '<div class="notice notice-success is-dismissible"><p>' . count($log_messages) . ' mídias desanexadas excluídas com sucesso!</p></div>';
+      delete_transient('delete_unattached_media_log_messages');
+    } else {
+      echo '<div class="notice notice-warning is-dismissible"><p>Nenhuma mídia desanexada encontrada para exclusão no período especificado.</p></div>';
+    }
   }
 });
