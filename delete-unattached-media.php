@@ -39,8 +39,7 @@ function write_custom_log($message, $log_file) {
   file_put_contents($log_dir . '/' . $log_file, $formatted_message, FILE_APPEND);
 }
 
-
-// Função para excluir mídias desanexadas
+// Modificação da função delete_unattached_media
 function delete_unattached_media($start_date, $end_date) {
   global $wpdb;
 
@@ -54,9 +53,9 @@ function delete_unattached_media($start_date, $end_date) {
   // Gerar um nome único para o arquivo de log baseado nas datas
   $log_file_name = 'delete_media_' . date('Y-m-d') . '-start-' . sanitize_title($start_date) . '-end-' . sanitize_title($end_date) . '.log';
 
-
   // Iniciar o array de mensagens de log
   $log_messages = [];
+  $deleted_count = 0; // Variável para contar as mídias excluídas
 
   // Obter os IDs das mídias desanexadas
   $unattached_media_ids = $wpdb->get_col($wpdb->prepare("
@@ -80,6 +79,7 @@ function delete_unattached_media($start_date, $end_date) {
         $full_message = $message . $attachment_url;
         write_custom_log($full_message, $log_file_name);
         $log_messages[] = $full_message; // Armazena a mensagem para exibição
+        $deleted_count++; // Incrementa a contagem de mídias excluídas
       } else if ($deleted === false) {
         $full_message = "Erro ao excluir a mídia: " . $attachment_url;
         write_custom_log($full_message, $log_file_name);
@@ -96,14 +96,15 @@ function delete_unattached_media($start_date, $end_date) {
     $log_messages[] = $full_message;
   }
 
-  return $log_messages; // Retorna o array de mensagens de log
+  return ['log_messages' => $log_messages, 'deleted_count' => $deleted_count]; // Retorna as mensagens e a contagem de exclusões
 }
 
-// Função para exibir o formulário
+// Modificação na função delete_unattached_media_form para passar a contagem
 function delete_unattached_media_form() {
   $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
   $end_date = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
   $log_messages = [];
+  $deleted_count = 0; // Inicializa a contagem
 
   if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($start_date) && !empty($end_date)) {
     // Validação de datas
@@ -112,18 +113,10 @@ function delete_unattached_media_form() {
       return;
     }
 
-    $log_messages = delete_unattached_media($start_date, $end_date);
-
-    add_action('admin_notices', function () use ($log_messages) {
-      // Verifique se há mensagens de log
-      if (isset($log_messages) && !empty($log_messages)) {
-        // Exibe o sucesso se houver mensagens
-        echo '<div class="notice notice-success is-dismissible"><p>' . count($log_messages) . ' mídias desanexadas excluídas com sucesso!</p></div>';
-      } else {
-        // Caso contrário, exibe um aviso de que nenhuma mídia foi encontrada
-        echo '<div class="notice notice-warning is-dismissible"><p>Nenhuma mídia desanexada encontrada para exclusão no período especificado.</p></div>';
-      }
-    });
+    // Chama a função para excluir as mídias e recebe as mensagens e a contagem
+    $result = delete_unattached_media($start_date, $end_date);
+    $log_messages = $result['log_messages'];
+    $deleted_count = $result['deleted_count']; // Recebe a contagem de mídias excluídas
   }
 ?>
   <div class="wrap">
@@ -137,6 +130,7 @@ function delete_unattached_media_form() {
     </form>
     <?php if (!empty($log_messages)): ?>
       <h2>Relatório de Exclusão:</h2>
+      <div class="notice notice-success is-dismissible"><p><?= $deleted_count ?> mídias desanexadas excluídas com sucesso!</p></div>
       <ul>
         <?php foreach ($log_messages as $message): ?>
           <li><?php echo esc_html($message); ?></li>
@@ -146,6 +140,7 @@ function delete_unattached_media_form() {
   </div>
 <?php
 }
+
 
 // Função para adicionar o menu do plugin
 function delete_unattached_media_menu() {
